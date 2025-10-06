@@ -29,15 +29,19 @@ const renderContent = $("#renderContent");
 
 const STORAGE_KEY = "codeJournalStorageKey2025";
 
-// need a way to track globally what entry we are wanting to display 
+// need a way to track globally what entry we are wanting to display/are on
 
 let currentId = null;
 
-// make some dummy data so we can see if things are working (an array of entries)
+
+// unique id for each entry for later retrieval
+// https://stackoverflow.com/questions/8012002/create-a-unique-number-with-javascript-time
 
 function uid() {
     return (Date.now().toString(36) + Math.random().toString(36).slice(2, 8)).toUpperCase();
 }
+
+// seed example entries when page is empty
 
 function seedIfEmpty() {
     const entries = loadEntries();
@@ -47,27 +51,40 @@ function seedIfEmpty() {
             id: uid(),
             title: "Hello Journal!",
             date: new Date().toISOString().slice(0, 10),
-            content: `### Markdown Guide. 
-            A lightweight Markdown converter implemented with JavaScript. 
-            - Headings # ## ### 
-            - Unordered lists 
-            - Fenced code blocks 
-            - use triple back tickets and start on a new line (be sure not to have empty lines between you code) 
-            - **Bold** with **text**, *italics* with *text* 
-            - Links [text](https://example.com)`,
+            content: `# Hello Journal
+
+This app supports basic Markdown:
+
+- Headings (#, ##, ###)
+- **Bold** and *italics*
+- Links like [MDN](https://developer.mozilla.org/)
+- Lists (unordered and ordered)
+- Fenced code blocks
+
+Try editing this entry, then click **Preview**.`,
         },
         {
             id: uid(),
-            title: "West Wing",
+            title: "Let's try fenced code blocks!",
             date: new Date().toISOString().slice(0, 10),
-            content: "testing the second",
+            content: `### JavaScript example.
+            Be sure to use triple back ticks with no white spaces between your code for it to work!
+
+Here is a fenced code block:
+
+\`\`\`js
+function hello(name) {
+  console.log(\`Hello, \${name}!\`);
+}
+hello("Journal");
+\`\`\`
+`,
         }
     ];
     saveEntries(seeded);
 }
 
-// create a uid function that will add a unique user id to each entry in order to get the one we want
-
+// function for getting the values from our form (html input element + name)
 
 function getFormData() {
     return {
@@ -95,46 +112,88 @@ function escapeHTML (unsafe_str) {
 function markdownToHtml(md) {
     if (!md) return "";
 
-    // make new lines and white spaces with normalised new line
+    // normalize newlines & trim
     md = String(md).replace(/\r\n?/g, "\n").trim();
 
     // escape raw HTML
     md = escapeHTML(md);
 
-    // make triple backticks the indicator for a code block - replacing the ticks with the pre and code tags
+
     md = md.replace(/```([\w+-]+)?\n([\s\S]*?)```/g, (_, lang, code) => {
-        const cls = lang ? `class="lang-${lang}"` : "";
-        return `<pre><code${cls}>${code}</code></pre>`;
+    const cls = lang ? `class="lang-${lang}"` : "";
+    return `<pre><code ${cls}>${code}</code></pre>`;
     });
 
-    // Headings 
+    // headings
     md = md
-        .replace(/^######\s+(.*)$/gm, "<h6>$1</h6>")
-        .replace(/^#####\s+(.*)$/gm, "<h5>$1</h5>")
-        .replace(/^####\s+(.*)$/gm, "<h4>$1</h4>")
-        .replace(/^###\s+(.*)$/gm, "<h3>$1</h3>")
-        .replace(/^##\s+(.*)$/gm, "<h2>$1</h2>")
-        .replace(/^#\s+(.*)$/gm, "<h1>$1</h1>")
+    .replace(/^######\s+(.*)$/gm, "<h6>$1</h6>")
+    .replace(/^#####\s+(.*)$/gm, "<h5>$1</h5>")
+    .replace(/^####\s+(.*)$/gm, "<h4>$1</h4>")
+    .replace(/^###\s+(.*)$/gm, "<h3>$1</h3>")
+    .replace(/^##\s+(.*)$/gm, "<h2>$1</h2>")
+    .replace(/^#\s+(.*)$/gm, "<h1>$1</h1>");
 
-    // Inline: bold, italics, links 
+    // inline: bold, italics
     md = md
-        .replace(/(\*\*|__)(.+?)\1/g, "<strong>$2</strong>") 
-        .replace(/(\*|_)([^*_]+)\1/g, "<em>$2</em>") 
-    
-    md = md 
-        .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, text, url) => {
+    .replace(/(\*\*|__)(.+?)\1/g, "<strong>$2</strong>")
+    .replace(/(\*|_)([^*_]+)\1/g, "<em>$2</em>");
+
+    // inline: links [text](url)
+    md = md.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, text, url) => {
         const safeUrl = url.replace(/"/g, "%22");
-        return `<a href="${safeUrl}" target"_blank" rel="noopener noreferrer`;
-        });
-        
-    //Paragraphs
-    const blocks = md.split(/\n{2,}/).map(block => {
-        const isHtmlBlock = /^<(h\d|pre|ul|ol|blockquote|hr)/i.test(block.trim());
-        if(isHtmlBlock) return block;
-        return `<p>${block.replace(/\n/g, "<br>")}</p>`;
-    })
+        return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    });
 
-    return blocks.join("\n")
+        // BLOCK: lists
+        // Build <ul>/<ol> from consecutive lines starting with "- " / "* " or "1. "
+    (function buildLists() {
+    const lines = md.split("\n");
+    const out = [];
+    let inUL = false, inOL = false;
+
+    const closeLists = () => {
+        if (inUL) { out.push("</ul>"); inUL = false; }
+        if (inOL) { out.push("</ol>"); inOL = false; }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const liUL = /^\s*[-*]\s+(.+)$/.exec(raw);     // "- item" or "* item"
+    const liOL = /^\s*\d+\.\s+(.+)$/.exec(raw);    // "1. item"
+
+    if (liUL) {
+    if (inOL) { out.push("</ol>"); inOL = false; }
+    if (!inUL) { out.push("<ul>"); inUL = true; }
+    out.push(`<li>${liUL[1]}</li>`);
+    } else if (liOL) {
+    if (inUL) { out.push("</ul>"); inUL = false; }
+    if (!inOL) { out.push("<ol>"); inOL = true; }
+    out.push(`<li>${liOL[1]}</li>`);
+    } else {
+    // Blank line ends any open list
+    if (raw.trim() === "") {
+        closeLists();
+        out.push(""); // preserve blank line as separator
+    } else {
+        // Non-list content: close any open list and pass the line through
+        closeLists();
+        out.push(raw);
+            }
+        }
+    }
+    closeLists();
+    md = out.join("\n");
+    })();
+
+    // Paragraphs (don’t wrap blocks that already are HTML)
+    const blocks = md.split(/\n{2,}/).map(block => {
+    const trimmed = block.trim();
+    const isHtmlBlock = /^<(h\d|pre|ul|ol|blockquote|hr)/i.test(trimmed);
+    if (isHtmlBlock) return trimmed;
+    return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`;
+    });
+
+    return blocks.join("\n");
 }
 
 // lets do the onSave function first
@@ -232,7 +291,7 @@ function showEntry(id) {
 
 // foundations are okay now I can start creating functionality for the buttons - starting with the edit button
 
-// basically we need to find a way to populate the form 
+// we need to find a way to populate the form 
 
 function populateForm(entry) {
     currentId = entry?.id ?? null;

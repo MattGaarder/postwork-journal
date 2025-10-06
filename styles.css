@@ -204,6 +204,7 @@ textarea {
 
 .markdown-body ul {
     padding-left: 1.2rem;
+
 }
 
 .markdown-body a {
@@ -217,7 +218,7 @@ textarea {
 }
 
 .markdown-body code {
-    color: #0f1523;
+    color: #ffffff;
     border: 1px solid var(--border);
     padding: 0.2rem 0.3rem;
     border-radius: 5px;
