@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Journal</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header class="site-header">
+        <h1>Code Journal</h1>
+        <div class="header-actions">
+            <button id="newEntryBtn" class="btn primary">+ New Entry</button>
+        </div>
+    </header>
+
+    <main class="layout">
+
+        <aside class="sidebar">
+            <ul id="entriesList" class="entries"></ul>
+        </aside>
+
+        <section class="content">
+            
+            <div id="editorView" class="card">
+                <form id="entryForm">
+                    <div class="form-row">
+                        <label for="title">Title</label>
+                        <input type="text" id="title" name="title" placeholder="e.g. Hello Journal!" required>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="date">Date</label>
+                        <input type="date" name="date" id="date" required>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="content">Content (Markdown)</label>
+                        <textarea name="content" id="content" rows="12" required placeholder="A web application that allows members to document their coding projects and share their learnings throughout a semester. The application should enable users to maintain a personal code journal where they can log daily coding activities, thoughts, and reflections. Key features include support for Markdown formatting to allow users to document code snippets and explanations easily."></textarea>
+                    </div>
+                    <div class="actions">
+                        <button type="submit" class="btn primary" id="saveBtn">Save</button>
+                        <button type="button" class="btn" id="previewBtn">Preview</button>
+                        <button type="button" class="btn danger" id="deleteBtn">Delete</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="renderView" class="card" hidden>
+                <article>
+                    <h2 id="renderTitle"></h2>
+                    <p class="muted" id="renderDate"></p>
+                    <div id="renderContent" class="markdown-body"></div>
+                </article>
+                <div class="actions">
+                    <button type="button" class="btn" id="editBtn">Edit</button>
+                    <button type="button" class="btn danger" id="deleteBtnRender" hidden>Delete</button>
+                </div>
+            </div>
+
+        </section>                  
+    </main>
+    <script src="script.js"></script>
+</body>
+</html>
